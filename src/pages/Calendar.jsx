@@ -21,8 +21,8 @@ export default function Calendar() {
     setLoading(true)
     try {
       const data = await getEvents({
-        from: startOfDay(new Date()).toISOString(),
-        to: addDays(new Date(), 30).toISOString(),
+        from: startOfMonth(addMonths(new Date(), -1)).toISOString(),
+        to: endOfMonth(addMonths(new Date(), 3)).toISOString(),
       })
       setEvents(data ?? [])
     } finally {
