@@ -11,25 +11,37 @@ export function useCalendarSync() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       const googleToken = session?.provider_token
-      if (!googleToken) throw new Error('尚未連結 Google 帳號，請重新登入')
+      if (!googleToken) throw new Error('請重新登入以更新權限')
 
       const { data: { user } } = await supabase.auth.getUser()
 
-      const timeMin = startOfMonth(addMonths(new Date(), -1)).toISOString()
-      const timeMax = endOfMonth(addMonths(new Date(), 3)).toISOString()
+      const timeMin = encodeURIComponent(startOfMonth(addMonths(new Date(), -1)).toISOString())
+      const timeMax = encodeURIComponent(endOfMonth(addMonths(new Date(), 3)).toISOString())
 
-      const res = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=500`,
+      // 先抓所有日曆清單
+      const calListRes = await fetch(
+        'https://www.googleapis.com/calendar/v3/users/me/calendarList',
         { headers: { Authorization: `Bearer ${googleToken}` } }
       )
+      if (!calListRes.ok) throw new Error('無法取得日曆清單，請重新登入')
+      const { items: calendars = [] } = await calListRes.json()
 
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(`Google Calendar 錯誤：${err?.error?.message ?? res.status}`)
+      // 逐一同步每個日曆的事件
+      let allItems = []
+      for (const cal of calendars) {
+        if (cal.accessRole === 'freeBusyReader') continue
+        try {
+          const res = await fetch(
+            `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=500`,
+            { headers: { Authorization: `Bearer ${googleToken}` } }
+          )
+          if (!res.ok) continue
+          const { items = [] } = await res.json()
+          allItems = allItems.concat(items.map(item => ({ ...item, calendarName: cal.summary })))
+        } catch { continue }
       }
-      const { items = [] } = await res.json()
 
-      const toUpsert = items
+      const toUpsert = allItems
         .filter(item => item.status !== 'cancelled')
         .map(item => ({
           user_id: user.id,
@@ -70,3 +82,4 @@ export function useCalendarSync() {
 
   return { syncing, lastSynced, syncFromGoogle, getEvents }
 }
+
