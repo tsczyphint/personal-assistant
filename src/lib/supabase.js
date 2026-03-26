@@ -16,7 +16,7 @@ export const signInWithGoogle = () =>
   supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      scopes: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/spreadsheets.readonly',
+      scopes: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets.readonly',
       redirectTo: `${import.meta.env.VITE_APP_URL}/auth/callback`,
       queryParams: { access_type: 'offline', prompt: 'consent' }
     }
