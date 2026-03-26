@@ -1,0 +1,163 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=DM+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0a0a0a;
+  --bg2:       #141414;
+  --bg3:       #1e1e1e;
+  --border:    rgba(255,255,255,0.08);
+  --border2:   rgba(255,255,255,0.14);
+  --text:      #f0efe8;
+  --text2:     #888780;
+  --text3:     #555450;
+  --accent:    #7c6ff7;
+  --accent2:   #a89ef8;
+  --teal:      #1fa882;
+  --amber:     #e6a817;
+  --coral:     #e05a3a;
+  --radius:    14px;
+  --radius-sm: 8px;
+  --font:      'DM Sans', system-ui, sans-serif;
+  --mono:      'DM Mono', monospace;
+  --nav-h:     64px;
+}
+
+html, body, #root {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* Loading spinner */
+.spinner {
+  width: 28px; height: 28px;
+  border: 2px solid var(--border2);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Card */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+/* Pill / badge */
+.pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border2);
+  color: var(--text2);
+}
+.pill.accent  { background: rgba(124,111,247,0.15); border-color: rgba(124,111,247,0.3); color: var(--accent2); }
+.pill.teal    { background: rgba(31,168,130,0.12);  border-color: rgba(31,168,130,0.3);  color: #3ecfa0; }
+.pill.amber   { background: rgba(230,168,23,0.12);  border-color: rgba(230,168,23,0.3);  color: #f0c040; }
+.pill.coral   { background: rgba(224,90,58,0.12);   border-color: rgba(224,90,58,0.3);   color: #f07a5a; }
+
+/* Button */
+button {
+  font-family: var(--font);
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: opacity 0.15s, transform 0.1s;
+}
+button:active { transform: scale(0.97); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 500;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+  color: var(--text);
+}
+.btn:hover { border-color: var(--border2); opacity: 0.85; }
+.btn.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: #fff;
+}
+.btn.ghost { background: transparent; border-color: var(--border); }
+.btn.danger { background: rgba(224,90,58,0.15); border-color: rgba(224,90,58,0.3); color: #f07a5a; }
+
+/* Input */
+input[type="text"], input[type="number"], select, textarea {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  padding: 10px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--border2); }
+
+/* Section header */
+.section-label {
+  font-size: 11px; font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 10px;
+}
+
+/* Page container */
+.page {
+  padding: 16px 16px calc(var(--nav-h) + 16px);
+  max-width: 480px;
+  margin: 0 auto;
+  min-height: 100dvh;
+}
+
+/* Page header */
+.page-header {
+  padding: 16px 0 12px;
+  margin-bottom: 4px;
+}
+.page-title {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--text);
+}
+.page-sub {
+  font-size: 13px;
+  color: var(--text2);
+  margin-top: 2px;
+}
+
+/* Metric card */
+.metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.metric-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+.metric-label { font-size: 11px; color: var(--text3); margin-bottom: 4px; }
+.metric-val { font-size: 24px; font-weight: 500; color: var(--text); line-height: 1; }
+.metric-unit { font-size: 12px; color: var(--text2); margin-left: 2px; }
+
+/* Divider */
+.divider { height: 1px; background: var(--border); margin: 12px 0; }
