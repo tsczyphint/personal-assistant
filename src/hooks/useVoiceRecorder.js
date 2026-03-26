@@ -32,10 +32,11 @@ async function parseVoiceWithClaude(transcript) {
 
   if (!res.ok) throw new Error(`Claude proxy error: ${res.status}`)
   const data = await res.json()
-
+  if (data.error) throw new Error(data.error)
   const raw = (data.content || '').replace(/```json\n?|```/g, '').trim()
+  if (!raw) throw new Error(`Worker 回傳空內容`)
   const jsonMatch = raw.match(/\{[\s\S]*\}/)
-  if (!jsonMatch) throw new Error('AI 回傳格式錯誤，請重試')
+  if (!jsonMatch) throw new Error(`找不到 JSON：${raw.substring(0, 100)}`)
   return JSON.parse(jsonMatch[0])
 }
 
