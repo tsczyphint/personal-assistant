@@ -7,7 +7,6 @@ const tabs = [
   { to: '/notes',    label: '筆記',   icon: NoteIcon },
   { to: '/activity', label: '運動',   icon: ActivityIcon },
   { to: '/trip',     label: '行程',   icon: PlaneIcon },
-
 ]
 
 export default function Layout() {
