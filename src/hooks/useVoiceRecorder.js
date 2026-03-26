@@ -2,10 +2,8 @@ import { useState, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { addMinutes, parseISO } from 'date-fns'
 
-// ── Claude NLP 解析（透過後端 proxy，避免 API key 外露）────────
 async function parseVoiceWithClaude(transcript) {
   const now = new Date().toISOString()
-
   const prompt = `你是一個行事曆助理。使用者說了這段話：
 「${transcript}」
 
@@ -35,14 +33,12 @@ async function parseVoiceWithClaude(transcript) {
   if (!res.ok) throw new Error(`Claude proxy error: ${res.status}`)
   const data = await res.json()
 
-  // 清除可能的 markdown code fence
-  const raw = data.content.replace(/```json\n?|```/g, '').trim()
+  const raw = (data.content || '').replace(/```json\n?|```/g, '').trim()
   const jsonMatch = raw.match(/\{[\s\S]*\}/)
   if (!jsonMatch) throw new Error('AI 回傳格式錯誤，請重試')
   return JSON.parse(jsonMatch[0])
 }
 
-// ── 排程本地提醒（Service Worker Notification API）───────────
 async function scheduleNotification(event, minutesBefore) {
   const perm = await Notification.requestPermission()
   if (perm !== 'granted') return false
@@ -51,7 +47,6 @@ async function scheduleNotification(event, minutesBefore) {
   const delay = fireAt.getTime() - Date.now()
   if (delay <= 0) return false
 
-  // 存到 Supabase reminders 表（Service Worker 可輪詢）
   await supabase.from('reminders').insert({
     event_id: event.id,
     fire_at: fireAt.toISOString(),
@@ -59,7 +54,6 @@ async function scheduleNotification(event, minutesBefore) {
     status: 'pending'
   })
 
-  // 同時用 setTimeout 做當前 session 的備援提醒
   setTimeout(() => {
     new Notification(`⏰ ${event.title}`, {
       body: `${minutesBefore} 分鐘後開始${event.location ? `・${event.location}` : ''}`,
@@ -72,16 +66,15 @@ async function scheduleNotification(event, minutesBefore) {
   return true
 }
 
-// ── 主 Hook ───────────────────────────────────────────────────
 export function useVoiceRecorder() {
-  const [state, setState] = useState('idle') // idle | recording | processing | confirming | done | error
+  const [state, setState] = useState('idle')
   const [transcript, setTranscript] = useState('')
   const [parsed, setParsed] = useState(null)
   const [error, setError] = useState(null)
 
   const recognitionRef = useRef(null)
+  const transcriptRef = useRef('')
 
-  // 開始錄音
   const startRecording = useCallback(() => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       setError('此瀏覽器不支援語音辨識，請使用 Chrome 或 Safari')
@@ -95,6 +88,8 @@ export function useVoiceRecorder() {
     recognition.continuous = false
     recognition.interimResults = true
 
+    transcriptRef.current = ''
+
     recognition.onstart = () => setState('recording')
 
     recognition.onresult = (e) => {
@@ -102,12 +97,19 @@ export function useVoiceRecorder() {
         .map(r => r[0].transcript)
         .join('')
       setTranscript(text)
+      transcriptRef.current = text
     }
 
     recognition.onend = async () => {
       setState('processing')
+      const finalText = transcriptRef.current
+      if (!finalText?.trim()) {
+        setError('沒有偵測到語音，請重試')
+        setState('error')
+        return
+      }
       try {
-        const result = await parseVoiceWithClaude(transcript)
+        const result = await parseVoiceWithClaude(finalText)
         setParsed(result)
         setState('confirming')
       } catch (err) {
@@ -123,14 +125,12 @@ export function useVoiceRecorder() {
 
     recognitionRef.current = recognition
     recognition.start()
-  }, [transcript])
+  }, [])
 
-  // 停止錄音
   const stopRecording = useCallback(() => {
     recognitionRef.current?.stop()
   }, [])
 
-  // 確認並儲存事件
   const confirmEvent = useCallback(async (editedParsed) => {
     setState('processing')
     const { data: { user } } = await supabase.auth.getUser()
@@ -145,7 +145,7 @@ export function useVoiceRecorder() {
         end_at: editedParsed.end_at,
         reminder_minutes: editedParsed.reminder_minutes,
         source: 'voice',
-        raw_voice_text: transcript,
+        raw_voice_text: transcriptRef.current,
         parsed_by_ai: true,
         is_synced: false
       })
@@ -154,19 +154,17 @@ export function useVoiceRecorder() {
 
     if (dbErr) throw dbErr
 
-    // 排程提醒
     await scheduleNotification(event, editedParsed.reminder_minutes)
-
-    // 推送到 Google Calendar（非同步，不阻塞 UI）
     syncToGoogleCalendar(event).catch(console.warn)
 
     setState('done')
     return event
-  }, [transcript])
+  }, [])
 
   const reset = useCallback(() => {
     setState('idle')
     setTranscript('')
+    transcriptRef.current = ''
     setParsed(null)
     setError(null)
   }, [])
@@ -174,14 +172,10 @@ export function useVoiceRecorder() {
   return { state, transcript, parsed, error, startRecording, stopRecording, confirmEvent, reset }
 }
 
-// ── Google Calendar 同步（單向推送）──────────────────────────
 async function syncToGoogleCalendar(event) {
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('google_cal_token')
-    .single()
-
-  if (!profile?.google_cal_token) return
+  const { data: { session } } = await supabase.auth.getSession()
+  const googleToken = session?.provider_token
+  if (!googleToken) return
 
   const gcalEvent = {
     summary: event.title,
@@ -199,7 +193,7 @@ async function syncToGoogleCalendar(event) {
     {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${profile.google_cal_token}`,
+        Authorization: `Bearer ${googleToken}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(gcalEvent)
@@ -209,7 +203,6 @@ async function syncToGoogleCalendar(event) {
   if (!res.ok) return
   const created = await res.json()
 
-  // 記錄 Google event ID 方便未來雙向同步
   await supabase
     .from('events')
     .update({ google_event_id: created.id, is_synced: true })
