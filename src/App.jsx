@@ -6,13 +6,14 @@ import Voice from '@/pages/Voice'
 import Calendar from '@/pages/Calendar'
 import Activity from '@/pages/Activity'
 import Trip from '@/pages/Trip'
+import Notes from '@/pages/Notes'
 import Login from '@/pages/Login'
 import AuthCallback from '@/pages/AuthCallback'
 import Layout from '@/components/Layout'
 import '@/styles/global.css'
 
 export default function App() {
-  const [session, setSession] = useState(undefined) // undefined = loading
+  const [session, setSession] = useState(undefined)
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/activity" element={<Activity />} />
           <Route path="/trip" element={<Trip />} />
+          <Route path="/notes" element={<Notes />} />
         </Route>
       </Routes>
     </BrowserRouter>
