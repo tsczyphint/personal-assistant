@@ -29,7 +29,7 @@ export function useCalendarSync() {
       // 逐一同步每個日曆的事件
       let allItems = []
       for (const cal of calendars) {
-        if (cal.accessRole === 'freeBusyReader') continue
+        
         try {
           const res = await fetch(
             `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=500`,
