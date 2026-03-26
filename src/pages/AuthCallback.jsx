@@ -6,16 +6,29 @@ export default function AuthCallback() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        // 建立或更新 profile
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session) {
         await supabase.from('profiles').upsert({
           id: session.user.id,
           display_name: session.user.user_metadata?.full_name ?? '',
           google_cal_token: session.provider_token ?? null,
         }, { onConflict: 'id' })
-
         navigate('/', { replace: true })
+      } else {
+        setTimeout(() => {
+          supabase.auth.getSession().then(async ({ data: { session } }) => {
+            if (session) {
+              await supabase.from('profiles').upsert({
+                id: session.user.id,
+                display_name: session.user.user_metadata?.full_name ?? '',
+                google_cal_token: session.provider_token ?? null,
+              }, { onConflict: 'id' })
+              navigate('/', { replace: true })
+            } else {
+              navigate('/login', { replace: true })
+            }
+          })
+        }, 2000)
       }
     })
   }, [navigate])
