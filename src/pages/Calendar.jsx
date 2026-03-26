@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useCalendarSync } from '@/hooks/useCalendarSync'
-import { format, parseISO, isToday, isTomorrow, startOfDay, addDays } from 'date-fns'
+import { format, parseISO, isToday, isTomorrow, startOfMonth, endOfMonth, addMonths, isSameMonth } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 
 const SOURCE_COLORS = {
@@ -13,17 +13,20 @@ export default function Calendar() {
   const { syncFromGoogle, getEvents, syncing } = useCalendarSync()
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all') // all | voice | google_cal
+  const [filter, setFilter] = useState('all')
+  const [monthOffset, setMonthOffset] = useState(0)
+  const [syncMsg, setSyncMsg] = useState(null)
 
-  useEffect(() => { load() }, [])
+  const currentMonth = addMonths(new Date(), monthOffset)
+
+  useEffect(() => { load() }, [monthOffset])
 
   async function load() {
     setLoading(true)
     try {
-      const data = await getEvents({
-        from: startOfMonth(addMonths(new Date(), -1)).toISOString(),
-        to: endOfMonth(addMonths(new Date(), 3)).toISOString(),
-      })
+      const from = startOfMonth(currentMonth).toISOString()
+      const to = endOfMonth(currentMonth).toISOString()
+      const data = await getEvents({ from, to })
       setEvents(data ?? [])
     } finally {
       setLoading(false)
@@ -31,13 +34,19 @@ export default function Calendar() {
   }
 
   async function handleSync() {
-    await syncFromGoogle()
-    await load()
+    setSyncMsg(null)
+    try {
+      const result = await syncFromGoogle()
+      setSyncMsg(`同步完成，共 ${result.synced} 筆`)
+      await load()
+    } catch (e) {
+      setSyncMsg(e.message)
+    }
+    setTimeout(() => setSyncMsg(null), 4000)
   }
 
   const filtered = filter === 'all' ? events : events.filter(e => e.source === filter)
 
-  // 依日期分組
   const grouped = filtered.reduce((acc, ev) => {
     const day = format(parseISO(ev.start_at), 'yyyy-MM-dd')
     if (!acc[day]) acc[day] = []
@@ -55,7 +64,30 @@ export default function Calendar() {
             {syncing ? <span className="spinner" style={{ width: 13, height: 13, borderWidth: 1.5 }} /> : '同步 Google'}
           </button>
         </div>
+        {syncMsg && (
+          <div style={{ fontSize: 12, color: syncMsg.includes('完成') ? 'var(--teal)' : 'var(--coral)', marginTop: 6 }}>
+            {syncMsg}
+          </div>
+        )}
       </div>
+
+      {/* 月份切換 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <button className="btn ghost" onClick={() => setMonthOffset(m => m - 1)}
+          style={{ padding: '6px 12px', fontSize: 18 }}>‹</button>
+        <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--color-text-primary)' }}>
+          {format(currentMonth, 'yyyy 年 M 月', { locale: zhTW })}
+        </div>
+        <button className="btn ghost" onClick={() => setMonthOffset(m => m + 1)}
+          style={{ padding: '6px 12px', fontSize: 18 }}>›</button>
+      </div>
+
+      {monthOffset !== 0 && (
+        <button className="btn ghost" onClick={() => setMonthOffset(0)}
+          style={{ width: '100%', fontSize: 12, marginBottom: 12, color: 'var(--text2)' }}>
+          回到本月
+        </button>
+      )}
 
       {/* Filter pills */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
@@ -64,9 +96,9 @@ export default function Calendar() {
             className="pill"
             style={{
               cursor: 'pointer', border: 'none',
-              background: filter === val ? 'rgba(124,111,247,0.15)' : 'var(--bg2)',
-              borderColor: filter === val ? 'rgba(124,111,247,0.35)' : 'var(--border)',
-              color: filter === val ? 'var(--accent2)' : 'var(--text2)',
+              background: filter === val ? 'rgba(124,111,247,0.15)' : 'var(--color-background-secondary)',
+              borderColor: filter === val ? 'rgba(124,111,247,0.35)' : 'var(--color-border-tertiary)',
+              color: filter === val ? 'var(--accent2)' : 'var(--color-text-secondary)',
               padding: '5px 12px',
             }}>
             {label}
@@ -82,8 +114,12 @@ export default function Calendar() {
 
       {!loading && filtered.length === 0 && (
         <div className="card" style={{ textAlign: 'center', padding: '32px 16px' }}>
-          <div style={{ fontSize: 14, color: 'var(--text2)' }}>未來 30 天沒有行程</div>
-          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>可以同步 Google Calendar 或語音新增</div>
+          <div style={{ fontSize: 14, color: 'var(--text2)' }}>
+            {format(currentMonth, 'M 月', { locale: zhTW })} 沒有行程
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
+            點「同步 Google」拉取最新資料
+          </div>
         </div>
       )}
 
