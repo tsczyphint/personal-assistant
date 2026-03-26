@@ -29,7 +29,7 @@ async function parseVoiceWithClaude(transcript) {
   const res = await fetch(import.meta.env.VITE_CLAUDE_PROXY_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, max_tokens: 512 })
+    body: JSON.stringify({ prompt, max_tokens: 1024 })
   })
 
   if (!res.ok) throw new Error(`Claude proxy error: ${res.status}`)
