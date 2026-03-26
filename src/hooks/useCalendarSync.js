@@ -1,11 +1,12 @@
 import { useCallback, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { startOfMonth, endOfMonth, addMonths } from 'date-fns'
 
 export function useCalendarSync() {
   const [syncing, setSyncing] = useState(false)
   const [lastSynced, setLastSynced] = useState(null)
 
-  const syncFromGoogle = useCallback(async () => {
+  const syncFromGoogle = useCallback(async (monthOffset = 0) => {
     setSyncing(true)
     try {
       const { data: profile } = await supabase
@@ -17,19 +18,18 @@ export function useCalendarSync() {
 
       const { data: { user } } = await supabase.auth.getUser()
 
-      // 拉取未來 30 天的事件
-      const timeMin = new Date().toISOString()
-      const timeMax = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      // 往前1個月到往後3個月，一次同步大範圍
+      const timeMin = startOfMonth(addMonths(new Date(), -1)).toISOString()
+      const timeMax = endOfMonth(addMonths(new Date(), 3)).toISOString()
 
       const res = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=100`,
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=500`,
         { headers: { Authorization: `Bearer ${profile.google_cal_token}` } }
       )
 
       if (!res.ok) throw new Error('Google Calendar API 錯誤')
       const { items = [] } = await res.json()
 
-      // upsert（有 google_event_id 就更新，沒有就新增）
       const toUpsert = items
         .filter(item => item.status !== 'cancelled')
         .map(item => ({
@@ -57,7 +57,6 @@ export function useCalendarSync() {
     }
   }, [])
 
-  // 拉取本地事件列表
   const getEvents = useCallback(async ({ from, to } = {}) => {
     let query = supabase
       .from('events')
