@@ -6,28 +6,27 @@ export function useCalendarSync() {
   const [syncing, setSyncing] = useState(false)
   const [lastSynced, setLastSynced] = useState(null)
 
-  const syncFromGoogle = useCallback(async (monthOffset = 0) => {
+  const syncFromGoogle = useCallback(async () => {
     setSyncing(true)
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('google_cal_token')
-        .single()
-
-      if (!profile?.google_cal_token) throw new Error('尚未連結 Google 帳號')
+      const { data: { session } } = await supabase.auth.getSession()
+      const googleToken = session?.provider_token
+      if (!googleToken) throw new Error('尚未連結 Google 帳號，請重新登入')
 
       const { data: { user } } = await supabase.auth.getUser()
 
-      // 往前1個月到往後3個月，一次同步大範圍
       const timeMin = startOfMonth(addMonths(new Date(), -1)).toISOString()
       const timeMax = endOfMonth(addMonths(new Date(), 3)).toISOString()
 
       const res = await fetch(
-        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${timeMin}&timeMax=${timeMax}&singleEvents=true&orderBy=startTime&maxResults=500`,
-        { headers: { Authorization: `Bearer ${profile.google_cal_token}` } }
+        `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${encodeURIComponent(timeMin)}&timeMax=${encodeURIComponent(timeMax)}&singleEvents=true&orderBy=startTime&maxResults=500`,
+        { headers: { Authorization: `Bearer ${googleToken}` } }
       )
 
-      if (!res.ok) throw new Error('Google Calendar API 錯誤')
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(`Google Calendar 錯誤：${err?.error?.message ?? res.status}`)
+      }
       const { items = [] } = await res.json()
 
       const toUpsert = items
@@ -62,10 +61,8 @@ export function useCalendarSync() {
       .from('events')
       .select('*')
       .order('start_at', { ascending: true })
-
     if (from) query = query.gte('start_at', from)
     if (to)   query = query.lte('start_at', to)
-
     const { data, error } = await query
     if (error) throw error
     return data
