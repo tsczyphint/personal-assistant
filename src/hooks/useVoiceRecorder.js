@@ -37,7 +37,9 @@ async function parseVoiceWithClaude(transcript) {
 
   // 清除可能的 markdown code fence
   const raw = data.content.replace(/```json\n?|```/g, '').trim()
-  return JSON.parse(raw)
+  const jsonMatch = raw.match(/\{[\s\S]*\}/)
+  if (!jsonMatch) throw new Error('AI 回傳格式錯誤，請重試')
+  return JSON.parse(jsonMatch[0])
 }
 
 // ── 排程本地提醒（Service Worker Notification API）───────────
