@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useCalendarSync } from '@/hooks/useCalendarSync'
-import { format, parseISO, isToday, isTomorrow, startOfMonth, endOfMonth, addMonths, isSameMonth } from 'date-fns'
+import { format, parseISO, isToday, isTomorrow, startOfMonth, endOfMonth, addMonths } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 
 const SOURCE_COLORS = {
@@ -16,10 +16,19 @@ export default function Calendar() {
   const [filter, setFilter] = useState('all')
   const [monthOffset, setMonthOffset] = useState(0)
   const [syncMsg, setSyncMsg] = useState(null)
+  const todayRef = useRef(null)
 
   const currentMonth = addMonths(new Date(), monthOffset)
 
   useEffect(() => { load() }, [monthOffset])
+
+  useEffect(() => {
+    if (!loading && monthOffset === 0 && todayRef.current) {
+      setTimeout(() => {
+        todayRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
+    }
+  }, [loading, monthOffset])
 
   async function load() {
     setLoading(true)
@@ -54,6 +63,8 @@ export default function Calendar() {
     return acc
   }, {})
 
+  const todayStr = format(new Date(), 'yyyy-MM-dd')
+
   return (
     <div className="page">
       <div className="page-header">
@@ -75,7 +86,7 @@ export default function Calendar() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <button className="btn ghost" onClick={() => setMonthOffset(m => m - 1)}
           style={{ padding: '6px 12px', fontSize: 18 }}>‹</button>
-        <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--color-text-primary)' }}>
+        <div style={{ fontSize: 15, fontWeight: 500 }}>
           {format(currentMonth, 'yyyy 年 M 月', { locale: zhTW })}
         </div>
         <button className="btn ghost" onClick={() => setMonthOffset(m => m + 1)}
@@ -85,7 +96,7 @@ export default function Calendar() {
       {monthOffset !== 0 && (
         <button className="btn ghost" onClick={() => setMonthOffset(0)}
           style={{ width: '100%', fontSize: 12, marginBottom: 12, color: 'var(--text2)' }}>
-          回到本月
+          回到今天
         </button>
       )}
 
@@ -96,9 +107,9 @@ export default function Calendar() {
             className="pill"
             style={{
               cursor: 'pointer', border: 'none',
-              background: filter === val ? 'rgba(124,111,247,0.15)' : 'var(--color-background-secondary)',
-              borderColor: filter === val ? 'rgba(124,111,247,0.35)' : 'var(--color-border-tertiary)',
-              color: filter === val ? 'var(--accent2)' : 'var(--color-text-secondary)',
+              background: filter === val ? 'rgba(124,111,247,0.15)' : 'var(--bg2)',
+              borderColor: filter === val ? 'rgba(124,111,247,0.35)' : 'var(--border)',
+              color: filter === val ? 'var(--accent2)' : 'var(--text2)',
               padding: '5px 12px',
             }}>
             {label}
@@ -125,13 +136,25 @@ export default function Calendar() {
 
       {Object.entries(grouped).map(([day, dayEvents]) => {
         const date = parseISO(day)
-        const label = isToday(date) ? '今天' : isTomorrow(date) ? '明天' : format(date, 'M/d EEEE', { locale: zhTW })
+        const todayFlag = isToday(date)
+        const label = todayFlag ? '今天' : isTomorrow(date) ? '明天' : format(date, 'M/d EEEE', { locale: zhTW })
         return (
-          <div key={day} style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text3)', marginBottom: 8 }}>
+          <div key={day} style={{ marginBottom: 20 }}
+            ref={day === todayStr ? todayRef : null}>
+            <div style={{
+              fontSize: 12, fontWeight: 500, marginBottom: 8,
+              color: todayFlag ? 'var(--accent2)' : 'var(--text3)',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              {todayFlag && (
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} />
+              )}
               {label}
             </div>
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div className="card" style={{
+              padding: 0, overflow: 'hidden',
+              borderColor: todayFlag ? 'rgba(124,111,247,0.3)' : undefined,
+            }}>
               {dayEvents.map((ev, i) => (
                 <div key={ev.id} style={{
                   display: 'flex', gap: 14, alignItems: 'stretch',
