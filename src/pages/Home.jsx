@@ -11,22 +11,18 @@ export default function Home() {
   const [profile, setProfile] = useState(null)
   const [syncing, setSyncing] = useState(false)
 
-  useEffect(() => {
-    loadData()
-  }, [])
+  useEffect(() => { loadData() }, [])
 
   async function loadData() {
     const { data: { user } } = await supabase.auth.getUser()
     const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).single()
     setProfile(prof)
-
     const today = new Date()
     const todayEvents = await getEvents({
       from: startOfDay(today).toISOString(),
       to: endOfDay(addDays(today, 1)).toISOString()
     })
     setEvents(todayEvents ?? [])
-
     const { data: acts } = await supabase
       .from('activities')
       .select('*')
@@ -45,83 +41,78 @@ export default function Home() {
   const hour = new Date().getHours()
   const greeting = hour < 12 ? '早安' : hour < 18 ? '午安' : '晚安'
   const name = profile?.display_name?.split(' ')[0] ?? ''
-
   const todayEvents = events.filter(e => isToday(parseISO(e.start_at)))
   const tomorrowEvents = events.filter(e => isTomorrow(parseISO(e.start_at)))
-
   const weeklyKm = activities.reduce((s, a) => s + (a.distance_km ?? 0), 0)
 
   return (
-    <div className="page">
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0 20px' }}>
-        <div>
-          <div style={{ fontSize: 24, fontWeight: 500 }}>{greeting}{name ? `，${name}` : ''}</div>
-          <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>
-            {format(new Date(), 'M 月 d 日 EEEE', { locale: zhTW })}
+    <div className="page" style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+      <div style={{ flex: 1 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0 20px' }}>
+          <div>
+            <div style={{ fontSize: 24, fontWeight: 500 }}>{greeting}{name ? `，${name}` : ''}</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 2 }}>
+              {format(new Date(), 'M 月 d 日 EEEE', { locale: zhTW })}
+            </div>
           </div>
+          <button onClick={handleSync} className="btn ghost" style={{ padding: '8px 12px', fontSize: 12, gap: 5 }} disabled={syncing}>
+            {syncing ? <span className="spinner" style={{ width: 14, height: 14, borderWidth: 1.5 }} /> : <SyncIcon />}
+            同步
+          </button>
         </div>
-        <button
-          onClick={handleSync}
-          className="btn ghost"
-          style={{ padding: '8px 12px', fontSize: 12, gap: 5 }}
-          disabled={syncing}
-        >
-          {syncing ? <span className="spinner" style={{ width: 14, height: 14, borderWidth: 1.5 }} /> : <SyncIcon />}
-          同步
-        </button>
+
+        {/* Activity summary */}
+        {activities.length > 0 && (
+          <>
+            <div className="section-label">本週運動</div>
+            <div className="metric-grid" style={{ marginBottom: 16 }}>
+              <div className="metric-card">
+                <div className="metric-label">累積距離</div>
+                <div className="metric-val">{weeklyKm.toFixed(1)}<span className="metric-unit"> km</span></div>
+              </div>
+              <div className="metric-card">
+                <div className="metric-label">最近活動</div>
+                <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', marginTop: 4 }}>
+                  {activities[0]?.activity_type === 'Run' ? '跑步' :
+                   activities[0]?.activity_type === 'Ride' ? '騎車' : '運動'}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
+                  {activities[0] && format(new Date(activities[0].recorded_at), 'M/d')}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Today events */}
+        <div className="section-label">今日行程</div>
+        {todayEvents.length === 0
+          ? <EmptyState text="今天沒有行程" sub="按語音頁快速新增" />
+          : (
+            <div className="card" style={{ marginBottom: 12 }}>
+              {todayEvents.map((ev, i) => (
+                <EventRow key={ev.id} event={ev} last={i === todayEvents.length - 1} />
+              ))}
+            </div>
+          )
+        }
+
+        {/* Tomorrow events */}
+        {tomorrowEvents.length > 0 && (
+          <>
+            <div className="section-label" style={{ marginTop: 8 }}>明日行程</div>
+            <div className="card" style={{ marginBottom: 12 }}>
+              {tomorrowEvents.map((ev, i) => (
+                <EventRow key={ev.id} event={ev} last={i === tomorrowEvents.length - 1} muted />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
-      {/* Activity summary */}
-      {activities.length > 0 && (
-        <>
-          <div className="section-label">本週運動</div>
-          <div className="metric-grid" style={{ marginBottom: 16 }}>
-            <div className="metric-card">
-              <div className="metric-label">累積距離</div>
-              <div className="metric-val">{weeklyKm.toFixed(1)}<span className="metric-unit"> km</span></div>
-            </div>
-            <div className="metric-card">
-              <div className="metric-label">最近活動</div>
-              <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)', marginTop: 4 }}>
-                {activities[0]?.activity_type === 'run' ? '跑步' :
-                 activities[0]?.activity_type === 'ride' ? '騎車' : '運動'}
-              </div>
-              <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
-                {activities[0] && format(parseISO(activities[0].recorded_at), 'M/d')}
-              </div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Today events */}
-      <div className="section-label">今日行程</div>
-      {todayEvents.length === 0
-        ? <EmptyState text="今天沒有行程" sub="按語音頁快速新增" />
-        : (
-          <div className="card" style={{ marginBottom: 12 }}>
-            {todayEvents.map((ev, i) => (
-              <EventRow key={ev.id} event={ev} last={i === todayEvents.length - 1} />
-            ))}
-          </div>
-        )
-      }
-
-      {/* Tomorrow events */}
-      {tomorrowEvents.length > 0 && (
-        <>
-          <div className="section-label" style={{ marginTop: 8 }}>明日行程</div>
-          <div className="card" style={{ marginBottom: 12 }}>
-            {tomorrowEvents.map((ev, i) => (
-              <EventRow key={ev.id} event={ev} last={i === tomorrowEvents.length - 1} muted />
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* Sign out */}
-      <div style={{ marginTop: 24, paddingBottom: 8 }}>
+      {/* 登出按鈕置底 */}
+      <div style={{ paddingTop: 16, paddingBottom: 8 }}>
         <button className="btn ghost" onClick={signOut}
           style={{ width: '100%', fontSize: 13, color: 'var(--text3)' }}>
           登出
