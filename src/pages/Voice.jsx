@@ -11,7 +11,6 @@ export default function Voice() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  // 當 parsed 出現時，複製一份可編輯
   if (parsed && !editedParsed) setEditedParsed({ ...parsed })
 
   const handleConfirm = async () => {
@@ -39,31 +38,29 @@ export default function Voice() {
         <div className="page-sub">說出你的行程，AI 自動整理</div>
       </div>
 
-      {/* ── 錄音按鈕 ── */}
+      {/* 錄音按鈕 — 置中 */}
       {(state === 'idle' || state === 'recording') && !saved && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '32px 0 24px', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '48px 0 32px', gap: 20 }}>
           <button
             onClick={state === 'idle' ? startRecording : stopRecording}
             style={{
-              width: 88, height: 88,
+              width: 100, height: 100,
               borderRadius: '50%',
               background: state === 'recording' ? 'rgba(224,90,58,0.15)' : 'rgba(124,111,247,0.15)',
               border: `2px solid ${state === 'recording' ? 'var(--coral)' : 'var(--accent)'}`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'all 0.2s',
+              cursor: 'pointer',
             }}
           >
-            {state === 'recording'
-              ? <StopIcon />
-              : <MicIcon />
-            }
+            {state === 'recording' ? <StopIcon /> : <MicIcon />}
           </button>
-          <span style={{ fontSize: 13, color: 'var(--text2)' }}>
+          <span style={{ fontSize: 14, color: 'var(--text2)' }}>
             {state === 'recording' ? '錄音中⋯ 點按停止' : '點按開始說話'}
           </span>
 
           {state === 'recording' && transcript && (
-            <div className="card" style={{ width: '100%', marginTop: 8 }}>
+            <div className="card" style={{ width: '100%', marginTop: 4 }}>
               <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 6 }}>辨識中⋯</div>
               <div style={{ fontSize: 15, color: 'var(--text)', lineHeight: 1.6 }}>「{transcript}」</div>
             </div>
@@ -71,15 +68,15 @@ export default function Voice() {
         </div>
       )}
 
-      {/* ── 處理中 ── */}
+      {/* 處理中 */}
       {state === 'processing' && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px 0', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '80px 0', gap: 16 }}>
           <div className="spinner" />
           <span style={{ fontSize: 13, color: 'var(--text2)' }}>AI 解析中⋯</span>
         </div>
       )}
 
-      {/* ── 確認畫面 ── */}
+      {/* 確認畫面 */}
       {state === 'confirming' && editedParsed && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div className="card" style={{ borderColor: 'rgba(124,111,247,0.25)' }}>
@@ -94,18 +91,15 @@ export default function Voice() {
               <input type="text" value={editedParsed.title}
                 onChange={e => setEditedParsed(p => ({ ...p, title: e.target.value }))} />
             </Field>
-
             <Field label="開始時間">
               <input type="datetime-local" value={editedParsed.start_at?.slice(0, 16)}
                 onChange={e => setEditedParsed(p => ({ ...p, start_at: e.target.value + ':00+08:00' }))} />
             </Field>
-
             <Field label="地點">
               <input type="text" value={editedParsed.location ?? ''}
                 placeholder="（選填）"
                 onChange={e => setEditedParsed(p => ({ ...p, location: e.target.value || null }))} />
             </Field>
-
             <Field label="提前提醒">
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {REMINDER_OPTIONS.map(m => (
@@ -123,7 +117,6 @@ export default function Voice() {
                 ))}
               </div>
             </Field>
-
             {editedParsed.ambiguous && (
               <div style={{ padding: '10px 12px', background: 'rgba(230,168,23,0.1)', borderRadius: 8, border: '1px solid rgba(230,168,23,0.25)' }}>
                 <div style={{ fontSize: 12, color: 'var(--amber)', marginBottom: 2 }}>需要確認</div>
@@ -141,10 +134,10 @@ export default function Voice() {
         </div>
       )}
 
-      {/* ── 儲存成功 ── */}
+      {/* 儲存成功 */}
       {saved && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '48px 0', gap: 20 }}>
-          <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(31,168,130,0.15)', border: '2px solid var(--teal)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '80px 0', gap: 20 }}>
+          <div style={{ width: 72, height: 72, borderRadius: '50%', background: 'rgba(31,168,130,0.15)', border: '2px solid var(--teal)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <CheckIcon />
           </div>
           <div style={{ textAlign: 'center' }}>
@@ -160,7 +153,7 @@ export default function Voice() {
         </div>
       )}
 
-      {/* ── 錯誤 ── */}
+      {/* 錯誤 */}
       {state === 'error' && (
         <div style={{ padding: '16px', background: 'rgba(224,90,58,0.1)', borderRadius: 10, border: '1px solid rgba(224,90,58,0.25)' }}>
           <div style={{ fontSize: 13, color: 'var(--coral)', marginBottom: 8 }}>{error}</div>
@@ -181,11 +174,11 @@ function Field({ label, children }) {
 }
 
 function MicIcon() {
-  return <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+  return <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
 }
 function StopIcon() {
-  return <svg width="28" height="28" viewBox="0 0 24 24" fill="var(--coral)" stroke="none"><rect x="4" y="4" width="16" height="16" rx="3"/></svg>
+  return <svg width="32" height="32" viewBox="0 0 24 24" fill="var(--coral)" stroke="none"><rect x="4" y="4" width="16" height="16" rx="3"/></svg>
 }
 function CheckIcon() {
-  return <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
+  return <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20,6 9,17 4,12"/></svg>
 }
