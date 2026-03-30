@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { useCalendarSync } from '@/hooks/useCalendarSync'
+import { supabase } from '@/lib/supabase'
 import { format, parseISO, isToday, isTomorrow, startOfMonth, endOfMonth, addMonths } from 'date-fns'
 import { zhTW } from 'date-fns/locale'
 
@@ -16,6 +17,7 @@ export default function Calendar() {
   const [filter, setFilter] = useState('all')
   const [monthOffset, setMonthOffset] = useState(0)
   const [syncMsg, setSyncMsg] = useState(null)
+  const [completing, setCompleting] = useState(null) // 追蹤哪個事件正在更新
   const todayRef = useRef(null)
 
   const currentMonth = addMonths(new Date(), monthOffset)
@@ -52,6 +54,32 @@ export default function Calendar() {
       setSyncMsg(e.message)
     }
     setTimeout(() => setSyncMsg(null), 4000)
+  }
+
+  async function handleToggleComplete(ev) {
+    setCompleting(ev.id)
+    const newCompleted = !ev.completed
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update({
+          completed: newCompleted,
+          completed_at: newCompleted ? new Date().toISOString() : null,
+        })
+        .eq('id', ev.id)
+
+      if (!error) {
+        setEvents(prev =>
+          prev.map(e =>
+            e.id === ev.id
+              ? { ...e, completed: newCompleted, completed_at: newCompleted ? new Date().toISOString() : null }
+              : e
+          )
+        )
+      }
+    } finally {
+      setCompleting(null)
+    }
   }
 
   const filtered = filter === 'all' ? events : events.filter(e => e.source === filter)
@@ -160,10 +188,17 @@ export default function Calendar() {
                   display: 'flex', gap: 14, alignItems: 'stretch',
                   padding: '12px 16px',
                   borderBottom: i < dayEvents.length - 1 ? '1px solid var(--border)' : 'none',
+                  opacity: ev.completed ? 0.55 : 1,
+                  transition: 'opacity 0.2s',
                 }}>
                   <div style={{ width: 2, borderRadius: 2, background: SOURCE_COLORS[ev.source] ?? 'var(--text3)', flexShrink: 0 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{ev.title}</div>
+                    <div style={{
+                      fontSize: 14, fontWeight: 500, color: 'var(--text)',
+                      textDecoration: ev.completed ? 'line-through' : 'none',
+                    }}>
+                      {ev.title}
+                    </div>
                     <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 3, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                       <span>{ev.all_day ? '全天' : format(parseISO(ev.start_at), 'HH:mm')}</span>
                       {ev.location && <span>· {ev.location}</span>}
@@ -176,10 +211,44 @@ export default function Calendar() {
                         「{ev.raw_voice_text}」
                       </div>
                     )}
+                    {/* 完成時間標記 */}
+                    {ev.completed && ev.completed_at && (
+                      <div style={{ fontSize: 11, color: 'var(--teal)', marginTop: 4 }}>
+                        ✓ 完成於 {format(parseISO(ev.completed_at), 'M/d HH:mm')}
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)', flexShrink: 0, paddingTop: 2 }}>
-                    {ev.source === 'voice' ? '語音' : ev.source === 'google_cal' ? 'Google' : '手動'}
-                    {ev.is_synced && <span style={{ color: 'var(--teal)', marginLeft: 4 }}>✓</span>}
+
+                  {/* 右側：來源標籤 + 完成按鈕 */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between', flexShrink: 0, gap: 8 }}>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', paddingTop: 2 }}>
+                      {ev.source === 'voice' ? '語音' : ev.source === 'google_cal' ? 'Google' : '手動'}
+                      {ev.is_synced && <span style={{ color: 'var(--teal)', marginLeft: 4 }}>✓</span>}
+                    </div>
+                    {/* 完成確認按鈕 */}
+                    <button
+                      onClick={() => handleToggleComplete(ev)}
+                      disabled={completing === ev.id}
+                      style={{
+                        border: ev.completed ? '1.5px solid var(--teal)' : '1.5px solid var(--border)',
+                        borderRadius: 6,
+                        background: ev.completed ? 'rgba(32,178,140,0.12)' : 'transparent',
+                        color: ev.completed ? 'var(--teal)' : 'var(--text3)',
+                        fontSize: 11,
+                        padding: '3px 8px',
+                        cursor: completing === ev.id ? 'not-allowed' : 'pointer',
+                        transition: 'all 0.15s',
+                        whiteSpace: 'nowrap',
+                        minWidth: 52,
+                      }}
+                    >
+                      {completing === ev.id
+                        ? '...'
+                        : ev.completed
+                          ? '✓ 完成'
+                          : '確認完成'
+                      }
+                    </button>
                   </div>
                 </div>
               ))}
